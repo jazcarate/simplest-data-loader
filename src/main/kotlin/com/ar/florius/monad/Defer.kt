@@ -13,9 +13,9 @@ class Defer<T> : AndThenable<T> {
         dependencies.clear()
     }
 
-    override fun <B> andThen(next: (input: T) -> AndThenable<B>): AndThenable<B> {
+    override fun <B> andThen(next: (T) -> AndThenable<B>): AndThenable<B> {
         val defer = Defer<B>()
-        this.dependencies.offer(Consumer<T> { t -> next(t).andThen { defer.push(it); defer } })
+        this.dependencies.offer(Consumer<T> { t -> next(t).andAccept(defer::push) })
         return defer
     }
 }

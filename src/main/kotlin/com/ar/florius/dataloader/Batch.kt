@@ -15,30 +15,30 @@ private class MultiMap<K, V> : LinkedHashMap<K, MutableList<V>>() {
 }
 
 class Batch(private val inner: (List<Int>) -> AndThenable<List<User?>>) : DataLoader<Int, User> {
-    private val deps: MultiMap<Int, Defer<User?>> = MultiMap()
+    private val queue: MultiMap<Int, Defer<User?>> = MultiMap()
     private val cache: MutableMap<Int, User?> = mutableMapOf()
 
     override fun load(key: Int): AndThenable<User?> {
         val defer = Defer<User?>()
-        deps.addOne(key, defer)
+        queue.addOne(key, defer)
         return defer
     }
 
     override fun dispatch() {
-        if (deps.isEmpty()) return
+        if (queue.isEmpty()) return
 
-        val keys = deps.keys
+        val keys = queue.keys
 
-        deps.filter { (key: Int, _: List<Defer<User?>>) -> cache.containsKey(key) }
-            .forEach { (key: Int, _: List<Defer<User?>>) ->
-                deps.remove(key)!!.forEach { it.push(cache[key]) }
+        queue.filterKeys(cache::containsKey)
+            .forEach { (key, _) ->
+                queue.remove(key)!!.forEach { it.push(cache[key]) }
             }
 
         inner(keys.toList().minus(cache.keys)).andAccept {
             val results = mapOf(*keys.zip(it).toTypedArray())
             cache.putAll(results)
-            results.forEach { (key: Int, user: User?) ->
-                deps.remove(key)!!.forEach { defer -> defer.push(user) }
+            results.forEach { (key, user) ->
+                queue.remove(key)!!.forEach { defer -> defer.push(user) }
             }
             dispatch()
         }
