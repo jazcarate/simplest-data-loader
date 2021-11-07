@@ -1,21 +1,19 @@
 package com.ar.florius.monad
 
-import java.util.*
-import java.util.function.Consumer
-
 class Defer<T> : AndThenable<T> {
-    private var dependencies: Queue<Consumer<T>> = LinkedList()
+    private var dependency: (T) -> Unit =
+        {
+            if (it !is Unit)
+                println("WARN: There was nothing depending on this Defer")
+        }
 
     fun push(value: T) {
-        dependencies.forEach {
-            it.accept(value)
-        }
-        dependencies.clear()
+        dependency(value)
     }
 
     override fun <B> andThen(next: (T) -> AndThenable<B>): AndThenable<B> {
         val defer = Defer<B>()
-        this.dependencies.offer(Consumer<T> { t -> next(t).andAccept(defer::push) })
+        this.dependency = { t -> next(t).andAccept(defer::push) }
         return defer
     }
 }

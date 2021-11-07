@@ -1,6 +1,6 @@
 package com.ar.florius
 
-import com.ar.florius.dataloader.Batch
+import com.ar.florius.dataloader.*
 import com.ar.florius.dataloader.DataLoader
 import com.ar.florius.monad.AndThenable
 import com.ar.florius.monad.Sync
@@ -26,8 +26,10 @@ fun main() {
         )
     )
     val loader: DataLoader<Int, User> =
-        Batch(database::loadMany)
-    //NaiveLoader(database::loadMany)
+        //    Deferred(database::loadMany)
+        // Batch(database::loadMany)
+        BatchCache(database::loadMany)
+        // NaiveLoader(database::loadMany)
 
     loader.load(6).andThen { user ->
         loader.load(user!!.invitedBy!!).andThen { invitedBy ->
