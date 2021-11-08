@@ -1,9 +1,12 @@
 package com.ar.florius
 
-import com.ar.florius.dataloader.*
+import com.ar.florius.dataloader.BatchCache
 import com.ar.florius.dataloader.DataLoader
 import com.ar.florius.monad.AndThenable
 import com.ar.florius.monad.Sync
+import com.ar.florius.monad.multi
+import com.ar.florius.monad.wait
+import kotlin.concurrent.thread
 
 data class User(val id: Int, val name: String, val invitedBy: Int? = null)
 
@@ -31,19 +34,22 @@ fun main() {
         BatchCache(database::loadMany)
         // NaiveLoader(database::loadMany)
 
-    loader.load(6).andThen { user ->
+    val invited2 = loader.load(6).andThen { user ->
         loader.load(user!!.invitedBy!!).andThen { invitedBy ->
-            loader.load(invitedBy!!.invitedBy!!).andAccept { invitedBy2 ->
-                println("${user.name} was invited by ${invitedBy.name} and in turn invited by ${invitedBy2!!.name}")
+            loader.load(invitedBy!!.invitedBy!!).andThen { invitedBy2 ->
+                Sync(invitedBy2)
             }
         }
     }
 
-    loader.load(5).andThen { user ->
-        loader.load(user!!.invitedBy!!)
-    }.andAccept { invitedBy ->
-        println("5 was invited by ${invitedBy!!.name}")
+    val user1 = loader.load(1)
+
+    thread(start = true) {
+        loader.dispatch()
     }
 
-    loader.dispatch()
+    val users = wait(
+        multi(invited2 to user1)
+    )
+    println("1: ${users.first!!.name} & 2: ${users.second!!.name}")
 }
